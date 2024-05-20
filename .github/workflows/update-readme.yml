@@ -1,0 +1,38 @@
+name: Update README
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Se ejecuta cada 30 minutos
+  push:
+    branches:
+      - main
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Get Currently Playing Track
+        id: currently-playing
+        run: |
+          curl -X "GET" "https://api.spotify.com/v1/me/player/currently-playing" \
+            -H "Authorization: Bearer ${{ secrets.SPOTIFY_ACCESS_TOKEN }}" > currently-playing.json
+          cat currently-playing.json
+
+      - name: Update README
+        run: |
+          TRACK=$(jq -r '.item.name' currently-playing.json)
+          ARTIST=$(jq -r '.item.artists[0].name' currently-playing.json)
+          sed -i "s|<!--SPOTIFY_TRACK-->|$TRACK by $ARTIST|" README.md
+
+      - name: Commit changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add README.md
+          git commit -m 'Update currently playing track'
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
